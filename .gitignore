@@ -1,0 +1,5 @@
+input/*
+output/gz/*
+output/txt/*
+output/tex/*
+.idea
