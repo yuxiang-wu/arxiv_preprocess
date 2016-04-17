@@ -1,4 +1,4 @@
-import tarfile, sys, os, gzip
+import tarfile, sys, os, gzip, re
 import os.path as osp
 from detex import Detexer
 
@@ -27,7 +27,7 @@ def unzip(input_file, output_dir):
             except tarfile.TarError:
                 try:
                     gzip_open = gzip.open(gz_path, 'r')
-                    write_file = open(osp.join(tex_file_dir, arxiv_id + '.tex'), 'w')
+                    write_file = open(osp.join(tex_file_dir, arxiv_id + '.tex'), 'w+')
                     write_file.writelines(gzip_open.readlines())
                     gzip_open.close()
                     write_file.close()
@@ -38,7 +38,7 @@ def unzip(input_file, output_dir):
                     continue
             else:
                 for src_file in gz_files:
-                    if src_file.name.find('.tex') != -1:
+                    if re.search(re.compile(r'\.tex$'), src_file.name):
                         gz_files.extract(src_file, tex_file_dir)
                         src_file_path = osp.join(tex_file_dir, src_file.name)
                         if is_document(src_file_path):
@@ -66,6 +66,8 @@ def preprocess(output_dir):
     tex_file_dir = osp.join(output_dir, 'tex')
     text_file_dir = osp.join(output_dir, 'txt')
     detexer = Detexer()
+    if not osp.exists(output_dir):
+        os.mkdir(output_dir)
     if not osp.exists(text_file_dir):
         os.mkdir(text_file_dir)
     for filename in os.listdir(tex_file_dir):
@@ -76,7 +78,7 @@ def preprocess(output_dir):
     return
 
 
-def main(input_file, output_dir):
+def run(input_file, output_dir):
     print "Processing " + input_file + "..."
     count = unzip(input_file, output_dir)
     print "Finished processing %d files." % (count,)
@@ -86,7 +88,8 @@ def main(input_file, output_dir):
 
 
 if __name__ == "__main__":
-    # if not len(sys.argv) == 3:
-    #     print "Usage: python preprocess.py <input tar file> <output dir>"
-    # main(sys.argv[1], sys.argv[2])
-    main('input/arXiv_src_1602_019.tar', 'output')
+    if not len(sys.argv) == 3:
+        print "Usage: python preprocess.py <input tar file> <output dir>"
+    else:
+        run(sys.argv[1], sys.argv[2])
+    # main('input/arXiv_src_1602_019.tar', 'output')

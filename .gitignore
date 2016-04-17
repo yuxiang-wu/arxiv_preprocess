@@ -1,5 +1,12 @@
-input/*
-output/gz/*
-output/txt/*
-output/tex/*
+input
+output/*
 .idea
+*.pyc
+archive/*
+*.pkl
+*.tex
+finalized_data/*
+opendetex/delatex
+opendetex/detex
+opendetex/*.o
+*.tar.gz
