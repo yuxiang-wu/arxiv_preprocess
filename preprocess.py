@@ -1,4 +1,8 @@
-import tarfile, sys, os, gzip, re
+import tarfile
+import sys
+import os
+import gzip
+import re
 import os.path as osp
 from detex import Detexer
 
@@ -21,13 +25,20 @@ def unzip(input_file, output_dir):
                 continue
 
             tar.extract(item, gz_file_dir)
-            gz_path = osp.join(gz_file_dir, item.name.replace('/', os.sep))  # for windows
+            gz_path = osp.join(
+                gz_file_dir, item.name.replace(
+                    '/', os.sep))  # for windows
             try:
                 gz_files = tarfile.open(gz_path, 'r|gz')
             except tarfile.TarError:
                 try:
                     gzip_open = gzip.open(gz_path, 'r')
-                    write_file = open(osp.join(tex_file_dir, arxiv_id + '.tex'), 'w+')
+                    write_file = open(
+                        osp.join(
+                            tex_file_dir,
+                            arxiv_id +
+                            '.tex'),
+                        'w+')
                     write_file.writelines(gzip_open.readlines())
                     gzip_open.close()
                     write_file.close()
@@ -62,9 +73,13 @@ def is_document(path):
     return begin & end
 
 
-def preprocess(output_dir):
+def preprocess(output_dir, mode='all'):
     tex_file_dir = osp.join(output_dir, 'tex')
-    text_file_dir = osp.join(output_dir, 'txt')
+    if mode == 'all':
+        text_file_dir = osp.join(output_dir, 'txt')
+    elif mode == 'brief':
+        text_file_dir = osp.join(output_dir, 'brief')
+
     detexer = Detexer()
     if not osp.exists(output_dir):
         os.mkdir(output_dir)
@@ -74,16 +89,16 @@ def preprocess(output_dir):
         if filename.find('.tex') != -1:
             old_file = osp.join(tex_file_dir, filename)
             new_file = osp.join(text_file_dir, filename.replace('tex', 'txt'))
-            detexer.detex_file(old_file, new_file)
+            detexer.detex_file(old_file, new_file, mode)
     return
 
 
-def run(input_file, output_dir):
+def run(input_file, output_dir, mode='all'):
     print "Processing " + input_file + "..."
     count = unzip(input_file, output_dir)
     print "Finished processing %d files." % (count,)
     print "Start preprocessing ..."
-    preprocess(output_dir)
+    preprocess(output_dir, mode)
     print "Done."
 
 

@@ -1,8 +1,11 @@
-import os, shutil
+import os
+import shutil
 import os.path as osp
 from detex import Detexer
 from preprocess import run
+# import pdb
 
+# pdb.set_trace()
 # def process_all(tex_dir, txt_dir):
 #     if not osp.exists(txt_dir):
 #         os.mkdir(txt_dir)
@@ -20,14 +23,16 @@ file_list = []
 for line in files:
     file_list.append(line.split()[3])
 
-for filename in file_list:
-    if filename >= 's3://arxiv/src/arXiv_src_1201_002.tar' and filename < 's3://arxiv/src/arXiv_src_1602_020.tar':
-        arxiv_batch = filename[-12:-4]
-        txt_path = osp.join('output', arxiv_batch, 'txt')
+for line in file_list:
+    filename = line[15:]
+    if filename >= 'arXiv_src_1201_002.tar' and filename < 'arXiv_src_1602_020.tar':
+        arxiv_batch = filename[10:-4]
+        txt_path = osp.join('output', arxiv_batch, 'brief')
         if osp.exists(txt_path):
             shutil.rmtree(txt_path)
         try:
-            run(osp.join('input', filename[15:]), osp.join('output', arxiv_batch))
+            run(osp.join('input', filename), osp.join(
+                'output', arxiv_batch), mode='brief')
             # process_all('output/' + arxiv_batch + '/tex', 'result/' + arxiv_batch)
         except:
             # raise
@@ -35,4 +40,3 @@ for filename in file_list:
         # else:
             # os.system('s3cmd get --requester-pays --force ' + filename + ' /export/data/ywubw/data/arxiv/')
             # process_all('output/' + arxiv_batch + '/tex', 'result/' + arxiv_batch)
-

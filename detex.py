@@ -21,7 +21,8 @@ class Detexer(object):
     END_ENUM = 'endEnum'
     ITEM = 'item'
     UNK = 'unk'
-    EOP = 'eop'  # end of paragraph
+    EOP = 'p'  # end of paragraph
+    EOS = 's'  # end of sentence
 
     def __init__(self):
         self.content = ''
@@ -36,12 +37,16 @@ class Detexer(object):
         ]
 
         self.common_list = [
-            (self._create_command_pattern('cite[tp]?'), self.CITE),  # process citations
-            (self._create_command_pattern('(eq)?ref'), self.REF),  # replace references
+            # process citations
+            (self._create_command_pattern('cite[tp]?'), self.CITE),
+            (self._create_command_pattern('(eq)?ref'),
+             self.REF),  # replace references
             # process inline formulas
-            (re.compile(r'([^\$])\$[^\$]+\$([^\$])', re.MULTILINE | re.DOTALL), r'\1' + self.INLINE_FORM + r'\2'),
+            (re.compile(r'([^\$])\$[^\$]+\$([^\$])',
+                        re.MULTILINE | re.DOTALL),
+             r'\1' + self.INLINE_FORM + r'\2'),
             # process outline formulas
-            (re.compile(r'\$\$(.+?)\$\$', re.MULTILINE | re.DOTALL), self._to_special(self.OUTLINE_FORM)),
+            (re.compile(r'\$\$(.+?)\$\$', re.MULTILINE | re.DOTALL), self.OUTLINE_FORM),
         ]
 
         # self.body_list = []
@@ -51,7 +56,7 @@ class Detexer(object):
         # for command in format_commands:
         #     # replace with inner content of the command
         #     self.body_list.append((self._create_command_pattern(command), r'\2'))
-        # delete_words = [r'\\par', r'\\\\', r'\\bigskip', r'\\newpage', r'\\textquote\w*', r'\\noindent({.*?})?', 
+        # delete_words = [r'\\par', r'\\\\', r'\\bigskip', r'\\newpage', r'\\textquote\w*', r'\\noindent({.*?})?',
         #         r'\\index{(.*?)}', r'\\vskip', r'\\vspace\*?{.*?}']
         # for word in delete_words:
         #     self.body_list.append((re.compile(word), ''))
@@ -66,7 +71,8 @@ class Detexer(object):
         #     (re.compile(r'\\subsubsection\s*(\[[^\[\]]*\])?\s*{(.*)}'), self._to_special(r'subsubsection{\2}')))
 
         # self.body_list.append((self._create_command_pattern('label'), ''))  # delete labels
-        # self.body_list.append((re.compile(r'\\footnote(size)?\s*{[^{}]*}', re.MULTILINE), ''))  # delete footnotes
+        # self.body_list.append((re.compile(r'\\footnote(size)?\s*{[^{}]*}',
+        # re.MULTILINE), ''))  # delete footnotes
 
         # # replace outline formulas
         # self.body_list.append(
@@ -74,7 +80,7 @@ class Detexer(object):
         # formular_list = ['align', 'equation', 'multline', 'eqnarray']
         # for formular in formular_list:
         #     self.body_list.append((re.compile(r'\\begin{' + formular + r'\*?}(.*?)\\end{' + formular + r'\*?}',
-        #                                       re.MULTILINE | re.DOTALL), self._to_special(self.OUTLINE_FORM)))
+        # re.MULTILINE | re.DOTALL), self._to_special(self.OUTLINE_FORM)))
 
         # # replace figures
         # self.body_list.append((re.compile(r'\\begin{figure\*?}(.*?)\\end{figure\*?}', re.MULTILINE | re.DOTALL),
@@ -95,7 +101,7 @@ class Detexer(object):
         # preserve_list = ['lemma', 'remark', 'center', 'proposition', 'widetext', 'corollary']
         # for environment in preserve_list:
         #     self.body_list.append((re.compile(r'\\begin{' + environment + r'\*?}(.*?)\\end{' + environment + r'\*?}',
-        #                                       re.MULTILINE | re.DOTALL), r'\1'))
+        # re.MULTILINE | re.DOTALL), r'\1'))
 
         # # process itemize and enumerate
         # self.body_list.append((re.compile(r'\\begin{itemize\*?}'), self._to_special(self.BEGIN_ITEM)))
@@ -118,12 +124,13 @@ class Detexer(object):
             (re.compile(r'\n\s*\n', re.MULTILINE), self._to_special(self.EOP)),
             (re.compile(r'\n'), ' '),
             (re.compile(r'\s{2,}'), ' '),
-            (re.compile(r'\\\w+\*?\s*(\[.*?\]){0,2}\s*({.*?}){1,2}\s*(\[.*?\]){0,2}'), self._to_special(self.UNK))
+            (re.compile(
+                r'\\\w+\*?\s*(\[.*?\]){0,2}\s*({.*?}){1,2}\s*(\[.*?\]){0,2}'), self._to_special(self.UNK))
         ]
 
     def _to_special(self, word):
-        left = ' '
-        right = ' '
+        left = ' **'
+        right = '** '
         return left + word + right
         # return word
 
@@ -167,7 +174,9 @@ class Detexer(object):
 
     def _get_title(self):
         # get title
-        title_pattern = regex.compile(r'\\[tT]itle\s*({(([^{}]*|(?1))*)})', regex.MULTILINE)
+        title_pattern = regex.compile(
+            r'\\[tT]itle\s*({(([^{}]*|(?1))*)})',
+            regex.MULTILINE)
         title_match = regex.search(title_pattern, self.content)
         if title_match:
             self.title = title_match.group(2)
@@ -184,12 +193,15 @@ class Detexer(object):
 
     def _get_abstract(self):
         # get abstract
-        abstract_pattern = re.compile(r'\\begin{abstract}(.+?)\\end{abstract}', re.MULTILINE | re.DOTALL)
+        abstract_pattern = re.compile(
+            r'\\begin{abstract}(.+?)\\end{abstract}',
+            re.MULTILINE | re.DOTALL)
         abstract_match = re.search(abstract_pattern, self.content)
         if abstract_match:
             self.abstract = abstract_match.group(1)
         else:
-            odd_pattern = regex.compile(r'\\[aA]bstract\s*({(([^{}]*|(?1))*)})', regex.MULTILINE)
+            odd_pattern = regex.compile(
+                r'\\[aA]bstract\s*({(([^{}]*|(?1))*)})', regex.MULTILINE)
             odd_match = regex.search(odd_pattern, self.content)
             if odd_match:
                 self.abstract = odd_match.group(2)
@@ -204,8 +216,45 @@ class Detexer(object):
         else:
             raise DetexError('empty abstract')
 
+    def opendetex(self, text):
+        with open('temp.tex', 'w+') as f:
+            f.write(text)
+        detex_cmd_string = './opendetex/delatex -sn -e abstract,thebibliography temp.tex'
+        try:
+            output = subprocess.check_output([detex_cmd_string], shell=True)
+        except:
+            raise
+        return output
+
+    def _get_brief(self):
+        intro_pattern = re.compile(
+            r'\\section\s*{[Ii]ntroduction.*?}(.*?)\\section',
+            re.MULTILINE | re.DOTALL)
+        intro_match = re.search(intro_pattern, self.content)
+        if intro_match:
+            self.intro = intro_match.group(1)
+        else:
+            raise DetexError('fail to find introduction')
+        self.body = self.opendetex(self.intro)
+
+        # conclu_pattern = re.compile(r'\\section\s*{[Cc]onclusion.*?}(.*?)\\end{document}', re.MULTILINE|re.DOTALL)
+        # conclu_match = re.search(conclu_pattern, self.content)
+        # if conclu_match:
+        #     # conclusion is optional
+        #     self.conclusion = conclu_match.group(1)
+        #     self.body += '\n\n' + self.opendetex(self.conclusion)
+
+        self._subsitute(self.post_list, self.BODY)
+
+        if self._check_not_empty(self.body):
+            return self.body
+        else:
+            raise DetexError('body is empty')
+
     def _get_body(self):
-        body_pattern = re.compile(r'(\\section{(.+))\\end{document}', re.MULTILINE | re.DOTALL)
+        body_pattern = re.compile(
+            r'(\\section{(.+))\\end{document}',
+            re.MULTILINE | re.DOTALL)
         body_match = re.search(body_pattern, self.content)
         if body_match:
             self.body = body_match.group(1)
@@ -216,14 +265,7 @@ class Detexer(object):
         if start >= 0:
             self.body = self.body[start + len(r'\\maketitle'):]
 
-        with open('temp.tex', 'w+') as f:
-            f.write(self.body)
-        detex_cmd_string = './opendetex/delatex -sn -e abstract,thebibliography temp.tex'
-        try:
-            self.body = subprocess.check_output([detex_cmd_string], shell=True)
-        except:
-            raise
-
+        self.body = self.opendetex(self.body)
         self._subsitute(self.post_list, self.BODY)
 
         if self._check_not_empty(self.body):
@@ -231,7 +273,7 @@ class Detexer(object):
         else:
             raise DetexError('body is empty')
 
-    def detex(self, content=None):
+    def detex(self, content=None, mode='all'):
         """
         Convert a tex file to plain text
         :param content: tex file string
@@ -243,6 +285,13 @@ class Detexer(object):
             if not self.content:
                 raise DetexError('empty content')
 
+        self.body = ''
+        self.intro = ''
+        self.title = ''
+        self.abstract = ''
+        self.conclusion = ''
+
+        self.mode = mode
         self._pre_process()
 
         try:
@@ -252,20 +301,23 @@ class Detexer(object):
 
         try:
             self._get_abstract()
-            self._get_body()
+            if mode == 'all':
+                self._get_body()
+            elif mode == 'brief':
+                self._get_brief()
         except DetexError as e:
             raise e
 
         output = self._to_special(self.TITLE) + '\n' + self.title + '\n\n' \
-                 + self._to_special(self.ABSTRACT) + '\n' + self.abstract + '\n\n' \
-                 + self._to_special(self.BODY) + '\n' + self.body + '\n'
+            + self._to_special(self.ABSTRACT) + '\n' + self.abstract + '\n\n' \
+            + self._to_special(self.BODY) + '\n' + self.body + '\n'
         return output
 
-    def detex_file(self, input_file, output_file):
+    def detex_file(self, input_file, output_file, mode='all'):
         with open(input_file, 'r') as f1:
             content = f1.read()
         try:
-            text = self.detex(content)
+            text = self.detex(content, mode=mode)
         except DetexError as e:
             print "Failed when processing %s: %s" % (input_file, e)
         else:
@@ -275,6 +327,7 @@ class Detexer(object):
 
 
 class DetexError(Exception):
+
     def __init__(self, value):
         self.value = value
 
@@ -284,5 +337,7 @@ class DetexError(Exception):
 
 if __name__ == '__main__':
     detexer = Detexer()
-    detexer.detex_file('output/1601_001/tex/1601.00001.tex', 'output/1601_001/txt/1601.00001.txt')
+    detexer.detex_file(
+        'output/1601_001/tex/1601.00001.tex',
+        'output/1601_001/txt/1601.00001.txt')
     print 'Done'

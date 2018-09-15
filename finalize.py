@@ -10,15 +10,18 @@ import re
 
 # content_idx = 1
 
-def process_all():
+
+def process_all(mode='all'):
     data = []
-    sum_abs_len = 0
-    sum_body_len = 0
     file_count = 0
     output_dir = 'output'
     for directory in os.listdir(output_dir):
         print 'Entering ' + directory
-        txt_dir = osp.join(output_dir, directory, 'txt')
+        if mode == 'brief':
+            txt_dir = osp.join(output_dir, directory, 'brief')
+        else:
+            txt_dir = osp.join(output_dir, directory, 'txt')
+
         if osp.exists(txt_dir):
             for fn in os.listdir(txt_dir):
                 with open(osp.join(txt_dir, fn), 'r') as f:
@@ -26,21 +29,15 @@ def process_all():
                     try:
                         abstract = lines[4]
                         body = lines[7]
-                        abstract_len = len(abstract.split())
-                        body_len = len(body.split())
-                        sum_abs_len += abstract_len
-                        sum_body_len += body_len
                         file_count += 1
                     except:
                         continue
-                    data.append((fn, abstract, abstract_len, body, body_len))
-                    print "File %s has (%d, %d)" % (fn, abstract_len, body_len)
+                    data.append((fn, abstract, body))
+                    print "Finished processing %s." % fn
 
-    with open('arxiv.pkl', 'w') as fo:
+    with open('arxiv.%s.pkl' % mode, 'w') as fo:
         cPickle.dump(data, fo)
-    print "Totol %d files, ave_abs_len: %f, ave_body_len: %f" % \
-        (file_count, sum_abs_len / float(file_count),
-         sum_body_len / float(file_count))
+    print "Totol %d files." % file_count
     return data
 
 
@@ -93,7 +90,7 @@ def build_all_dict(data, output, is_target=False):
     if is_target:
         content_idx = 1
     else:
-        content_idx = 3
+        content_idx = 2
 
     p = Pool(pool_size)
     word_freqs = p.map(build_dict, batches)
@@ -121,9 +118,9 @@ def build_all_dict(data, output, is_target=False):
 
     print 'Converting...'
     worddict = OrderedDict()
-    worddict['eof'] = 0
-    worddict['unk'] = 1
-    worddict['eop'] = 2
+    worddict['**eof**'] = 0
+    worddict['**unk**'] = 1
+    worddict['**p**'] = 2
     worddict['$'] = 3
     worddict['@'] = 4
 
@@ -145,7 +142,8 @@ def build_all_dict(data, output, is_target=False):
 def reduce_dict(words, worddict, maxlen):
     candidates = words[:5]
     count = 5
-    p = re.compile(r'([_&=\|\[\]{}\^\\\+\?\*])|(\d+[:\-])|([:\-]\d+)|(\(\w+)|(\w+\))|(\w+\.\w*)|(^\d+$)|(\d+E\-?\d+)')
+    p = re.compile(
+        r'([_&=\|\[\]{}\^\\\+\?])|(\d+[:\-])|([:\-]\d+)|(\(\w+)|(\w+\))|(\w+\.\w*)|(^\d+$)|(\d+E\-?\d+)')
     for word in words[5:]:
         if re.search(p, word):
             continue
@@ -160,67 +158,71 @@ def reduce_dict(words, worddict, maxlen):
 
 
 def main(maxlen_src=3000, n_words_src=100000,
-         maxlen_trg=200, n_words_trg=30000, update=False):
-    # if osp.exists('arxiv.pkl'):
-    #     print 'Loading arxiv data...'
-    #     with open('arxiv.pkl', 'r') as fi:
-    #         data = cPickle.load(fi)
-    # else:
-    #     data = process_all()
+         maxlen_trg=200, n_words_trg=30000, update=False, mode='all'):
+    arxivname = 'arxiv.%s' % mode
 
-    # if osp.exists('arxiv.source.dict.pkl'):
-    #     print 'Loading arxiv source dictionary...'
-    #     with open('arxiv.source.dict.pkl', 'r') as f:
-    #         worddict_source = cPickle.load(f)
-    # else:
-    #     worddict_source = build_all_dict(data, 'arxiv.source', False)
+    if osp.exists(arxivname + '.pkl'):
+        print 'Loading arxiv data...'
+        with open(arxivname + '.pkl', 'r') as fi:
+            data = cPickle.load(fi)
+    else:
+        data = process_all(mode)
 
-    # if osp.exists('arxiv.target.dict.pkl'):
-    #     print 'Loading arxiv target dictionary...'
-    #     with open('arxiv.target.dict.pkl', 'r') as f:
-    #         worddict_target = cPickle.load(f)
-    # else:
-    #     worddict_target = build_all_dict(data, 'arxiv.target', True)
+    sourcename = 'arxiv.%s.source' % mode 
+    if osp.exists(sourcename + '.dict.pkl'):
+        print 'Loading arxiv source dictionary...'
+        with open(sourcename + '.dict.pkl', 'r') as f:
+            worddict_source = cPickle.load(f)
+    else:
+        worddict_source = build_all_dict(data, sourcename, False)
+
+    targetname = 'arxiv.%s.target' % mode 
+    if osp.exists(targetname + '.dict.pkl'):
+        print 'Loading arxiv target dictionary...'
+        with open(targetname + '.dict.pkl', 'r') as f:
+            worddict_target = cPickle.load(f)
+    else:
+        worddict_target = build_all_dict(data, targetname, True)
 
     # update the dataset with corresponding maxlen and n_word
     if update:
-        if osp.exists('arxiv.small.pkl'):
-            with open('arxiv.small.pkl', 'rb') as f:
-                small_data = cPickle.load(f)
+        if osp.exists(arxivname + '.pkl'):
+            with open(arxivname + '.pkl', 'rb') as f:
+                data = cPickle.load(f)
             print 'Finish loading small arxiv'
         else:
-            small_data = []
+            data = []
             for doc in data:
                 if doc[2] > maxlen_trg or doc[4] > maxlen_src:
                     continue
-                small_data.append(doc)
-            print 'Updated smaller dataset contains %d documents' % len(small_data)
+                data.append(doc)
+            print 'Updated smaller dataset contains %d documents' % len(data)
 
-            with open('arxiv.small.pkl', 'wb+') as f:
-                cPickle.dump(small_data, f)
+            with open(arxivname + '.pkl', 'wb+') as f:
+                cPickle.dump(data, f)
 
         # reduce the source dictionary
-        worddict_source = build_all_dict(small_data, None, False)
+        worddict_source = build_all_dict(data, None, False)
         words_source = worddict_source.keys()
         if len(words_source) > n_words_src:
             print "Reducing dictionary"
             worddict_source = reduce_dict(
                 words_source, worddict_source, n_words_src)
         print 'Pickling...'
-        with open('arxiv.source.dict.small.pkl', 'wb+') as f:
+        with open(sourcename + '.dict.pkl', 'wb+') as f:
             cPickle.dump(worddict_source, f)
 
         # reduce the target dictionary
-        worddict_target = build_all_dict(small_data, None, True)
+        worddict_target = build_all_dict(data, None, True)
         words_target = worddict_target.keys()
         if len(words_target) > n_words_trg:
             print "Reducing dictionary"
             worddict_target = reduce_dict(
                 words_target, worddict_target, n_words_trg)
         print 'Pickling...'
-        with open('arxiv.target.dict.small.pkl', 'wb+') as f:
+        with open(targetname + '.dict.pkl', 'wb+') as f:
             cPickle.dump(worddict_target, f)
 
 
 if __name__ == '__main__':
-    main(update=True)
+    main(update=True, mode='brief')
